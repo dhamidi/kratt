@@ -11,12 +11,14 @@ The `kratt` CLI provides a command-line interface for running the automated PR p
 Runs the worker to process a specific pull request in the current repository.
 
 **Usage:**
+
 ```bash
 kratt worker run 1        # Process PR #1
 kratt worker run 42       # Process PR #42
 ```
 
 **Behavior:**
+
 1. Detects the current git repository and validates it's a valid git repo
 2. Determines the GitHub repository from git remotes
 3. Configures and runs the Worker with default settings
@@ -24,6 +26,7 @@ kratt worker run 42       # Process PR #42
 5. Exits with status 0 on success, 1 on error
 
 **Error Conditions:**
+
 - Not in a git repository: "Error: current directory is not a git repository"
 - No GitHub remote found: "Error: no GitHub remote found in current repository"
 - Invalid PR number: "Error: invalid pull request number: must be a positive integer"
@@ -35,6 +38,7 @@ kratt worker run 42       # Process PR #42
 The CLI uses default configuration that can be customized via flags:
 
 ### Global Flags
+
 - `--timeout duration`: Maximum time for agent execution (default: 30m)
 - `--instructions file`: Path to file containing agent instructions (default: built-in instructions)
 - `--agent command`: Command to run the AI agent (default: ["amp", "--stdin"])
@@ -42,6 +46,7 @@ The CLI uses default configuration that can be customized via flags:
 - `--test command`: Command to run tests (default: ["go", "test", "./..."])
 
 ### Example with Flags
+
 ```bash
 kratt worker run 1 --timeout 45m --instructions ./custom-instructions.txt
 kratt worker run 1 --agent "claude-dev --stdin" --lint "golangci-lint run"
@@ -67,6 +72,7 @@ main.go              # CLI entry point
 ## Repository Detection
 
 The CLI must detect:
+
 1. Current directory is a git repository
 2. GitHub repository from git remotes (origin or upstream)
 3. Repository owner and name for GitHub API calls
@@ -95,9 +101,15 @@ defaultWorker := &worker.Worker{
 - Error messages are user-friendly and actionable
 - Debug information available via `--verbose` flag
 
-## Future Extensions
+## Implementation Status
 
-- `kratt config` - Manage configuration
-- `kratt worker status` - Check worker status
-- `kratt worker list` - List recent worker runs
-- Configuration file support in `.kratt.yaml`
+**CLI Implementation: DONE ✅**
+
+- ✅ Root command setup with global flags (cmd/root.go)
+- ✅ Worker subcommand group (cmd/worker.go)  
+- ✅ Worker run subcommand implementation (cmd/worker_run.go)
+- ✅ Main CLI entry point (main.go)
+- ✅ Repository detection and validation
+- ✅ Configuration flag handling
+- ✅ Error handling with proper exit codes
+- ✅ Integration with worker package
