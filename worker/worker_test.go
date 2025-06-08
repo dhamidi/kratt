@@ -101,6 +101,44 @@ func TestFakeLocalGit(t *testing.T) {
 	if len(commits) != 1 || commits[0] != "test commit" {
 		t.Error("Expected commit to be recorded")
 	}
+
+	// Test repository detection
+	isRepo, err := fake.IsGitRepository()
+	if err != nil {
+		t.Fatalf("IsGitRepository failed: %v", err)
+	}
+	if !isRepo {
+		t.Error("Expected default to be a git repository")
+	}
+
+	// Test GitHub repository detection
+	owner, repo, err := fake.GetGitHubRepository()
+	if err != nil {
+		t.Fatalf("GetGitHubRepository failed: %v", err)
+	}
+	if owner != "owner" || repo != "repo" {
+		t.Errorf("Expected owner='owner' repo='repo', got owner='%s' repo='%s'", owner, repo)
+	}
+
+	// Test setting repository status
+	fake.SetGitRepository(false)
+	isRepo, err = fake.IsGitRepository()
+	if err != nil {
+		t.Fatalf("IsGitRepository failed: %v", err)
+	}
+	if isRepo {
+		t.Error("Expected repository status to be false after setting")
+	}
+
+	// Test setting GitHub repository
+	fake.SetGitHubRepository("testowner", "testrepo")
+	owner, repo, err = fake.GetGitHubRepository()
+	if err != nil {
+		t.Fatalf("GetGitHubRepository failed: %v", err)
+	}
+	if owner != "testowner" || repo != "testrepo" {
+		t.Errorf("Expected owner='testowner' repo='testrepo', got owner='%s' repo='%s'", owner, repo)
+	}
 }
 
 func TestFakeGitHub(t *testing.T) {

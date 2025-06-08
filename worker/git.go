@@ -24,6 +24,13 @@ type LocalGit interface {
 
 	// GetWorktreePath returns the path to the worktree for the given branch
 	GetWorktreePath(branch string) (string, error)
+
+	// Repository detection methods (added for CLI support)
+	// IsGitRepository checks if the current directory is a git repository
+	IsGitRepository() (bool, error)
+
+	// GetGitHubRepository extracts GitHub owner/repo from git remotes
+	GetGitHubRepository() (owner, repo string, err error)
 }
 
 // GitRunner implements LocalGit interface using git commands
@@ -115,11 +122,63 @@ func (g *GitRunner) GetWorktreePath(branch string) (string, error) {
 	return worktreePath, nil
 }
 
+// IsGitRepository checks if the current directory is a git repository
+func (g *GitRunner) IsGitRepository() (bool, error) {
+	cmd := exec.Command("git", "rev-parse", "--is-inside-work-tree")
+	err := cmd.Run()
+	if err != nil {
+		// If git command fails, we're not in a git repository
+		return false, nil
+	}
+	return true, nil
+}
+
+// GetGitHubRepository extracts GitHub owner/repo from git remotes
+func (g *GitRunner) GetGitHubRepository() (owner, repo string, err error) {
+	cmd := exec.Command("git", "remote", "get-url", "origin")
+	output, err := cmd.Output()
+	if err != nil {
+		return "", "", fmt.Errorf("failed to get remote origin URL: %w", err)
+	}
+
+	url := strings.TrimSpace(string(output))
+	
+	// Parse GitHub URL patterns:
+	// https://github.com/owner/repo.git
+	// git@github.com:owner/repo.git
+	if strings.Contains(url, "github.com") {
+		// Remove .git suffix if present
+		if strings.HasSuffix(url, ".git") {
+			url = url[:len(url)-4]
+		}
+		
+		var parts []string
+		if strings.HasPrefix(url, "https://github.com/") {
+			// HTTPS format
+			path := strings.TrimPrefix(url, "https://github.com/")
+			parts = strings.Split(path, "/")
+		} else if strings.HasPrefix(url, "git@github.com:") {
+			// SSH format
+			path := strings.TrimPrefix(url, "git@github.com:")
+			parts = strings.Split(path, "/")
+		}
+		
+		if len(parts) >= 2 {
+			return parts[0], parts[1], nil
+		}
+	}
+	
+	return "", "", fmt.Errorf("unable to parse GitHub repository from URL: %s", url)
+}
+
 // FakeLocalGit implements LocalGit interface for testing
 type FakeLocalGit struct {
 	worktrees map[string]string // branch -> path mapping
 	currentDir string
 	commits []string
+	isGitRepo bool
+	githubOwner string
+	githubRepo string
 }
 
 // NewFakeLocalGit creates a new FakeLocalGit instance
@@ -128,6 +187,9 @@ func NewFakeLocalGit() *FakeLocalGit {
 		worktrees: make(map[string]string),
 		currentDir: "/fake/repo",
 		commits: []string{},
+		isGitRepo: true,
+		githubOwner: "owner",
+		githubRepo: "repo",
 	}
 }
 
@@ -171,4 +233,25 @@ func (f *FakeLocalGit) GetCommits() []string {
 // GetCurrentDir returns the current directory (for testing)
 func (f *FakeLocalGit) GetCurrentDir() string {
 	return f.currentDir
+}
+
+// IsGitRepository returns the configured git repository status (for testing)
+func (f *FakeLocalGit) IsGitRepository() (bool, error) {
+	return f.isGitRepo, nil
+}
+
+// GetGitHubRepository returns the configured GitHub owner/repo (for testing)
+func (f *FakeLocalGit) GetGitHubRepository() (owner, repo string, err error) {
+	return f.githubOwner, f.githubRepo, nil
+}
+
+// SetGitRepository sets whether this should report as a git repository (for testing)
+func (f *FakeLocalGit) SetGitRepository(isRepo bool) {
+	f.isGitRepo = isRepo
+}
+
+// SetGitHubRepository sets the GitHub owner/repo values (for testing)
+func (f *FakeLocalGit) SetGitHubRepository(owner, repo string) {
+	f.githubOwner = owner
+	f.githubRepo = repo
 }
