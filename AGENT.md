@@ -3,6 +3,7 @@
 This file contains guidelines for AI coding agents working on the Kratt project.
 
 ## Build/Test Commands
+
 - Build: `go build ./...`
 - Test all: `go test ./...`
 - Test single: `go test ./path/to/package -run TestName`
@@ -10,6 +11,7 @@ This file contains guidelines for AI coding agents working on the Kratt project.
 - Format: `go fmt ./...`
 
 ## Code Style Guidelines
+
 - Language: Go 1.24 (module: github.com/dhamidi/kratt)
 - Formatting: Use `gofmt`/`go fmt`
 - Imports: Group stdlib, external, local with blank lines between groups
@@ -18,8 +20,10 @@ This file contains guidelines for AI coding agents working on the Kratt project.
 - Types: Use `any` instead of `interface{}`
 - Comments: Follow Go doc comment conventions, start with function/type name
 - Packages: Use short, lowercase names without underscores
+- Backward Compatibility: ignore - this is an undeployed prototype
 
 ## Project Structure
+
 - `docs/` - Documentation
 - `worker/` - Worker implementation (empty)
 
