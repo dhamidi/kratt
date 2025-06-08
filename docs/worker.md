@@ -63,7 +63,7 @@ type CommandRunner interface {
 }
 ```
 
-### Step 2: Define Worker Struct
+### Step 2: Define Worker Struct - DONE
 
 ```go
 type Worker struct {
