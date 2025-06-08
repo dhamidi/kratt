@@ -36,6 +36,13 @@ type LocalGit interface {
     
     // GetWorktreePath returns the path to the worktree for the given branch
     GetWorktreePath(branch string) (string, error)
+    
+    // Repository detection methods (added for CLI support)
+    // IsGitRepository checks if the current directory is a git repository
+    IsGitRepository() (bool, error)
+    
+    // GetGitHubRepository extracts GitHub owner/repo from git remotes
+    GetGitHubRepository() (owner, repo string, err error)
 }
 ```
 
@@ -135,6 +142,8 @@ Create the main `ProcessPR(prNumber int) error` method:
 - Use `os/exec` to run git commands
 - Handle worktree operations using `git worktree` subcommands
 - Implement directory changes using `os.Chdir` or command working directory
+- Repository detection using `git rev-parse --is-inside-work-tree`
+- GitHub repository extraction using `git remote get-url origin` and URL parsing
 
 #### GitHubCLI (implements GitHub)  
 
@@ -167,6 +176,8 @@ Use fakes (not mocks) that maintain internal state and uphold invariants:
 - `CheckWorktreeExists()` checks the worktrees map
 - `ChangeDirectory()` tracks current directory
 - `CommitAndPush()` records commits made
+- `IsGitRepository()` returns configurable boolean (default: true)
+- `GetGitHubRepository()` returns configurable owner/repo (default: "owner/repo")
 - All operations respect the internal state
 
 #### FakeGitHub  
@@ -203,9 +214,9 @@ worker/
 └── worker_test.go    # Unit and integration tests - DONE ✅
 ```
 
-## Implementation Status - COMPLETED ✅
+## Implementation Status
 
-All components have been implemented and tested:
+Core worker implementation completed:
 - ✅ All interfaces defined with proper method signatures
 - ✅ Concrete implementations using exec commands for git, GitHub CLI, and system commands
 - ✅ Comprehensive fake implementations for testing
@@ -213,6 +224,11 @@ All components have been implemented and tested:
 - ✅ Complete test coverage with unit and integration tests
 - ✅ Error handling with proper context wrapping
 - ✅ All tests passing
+
+**CLI Integration Requirements:**
+- ⏳ Add repository detection methods to LocalGit interface
+- ⏳ Implement IsGitRepository() and GetGitHubRepository() in GitRunner
+- ⏳ Update FakeLocalGit with new methods for testing
 
 ## Usage Example
 
