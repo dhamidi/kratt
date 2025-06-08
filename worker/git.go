@@ -32,6 +32,16 @@ type LocalGit interface {
 
 	// GetGitHubRepository extracts GitHub owner/repo from git remotes
 	GetGitHubRepository() (owner, repo string, err error)
+
+	// Start method support (added for Worker.Start)
+	// CreateBranch creates a new branch and switches to it
+	CreateBranch(branchName string) error
+
+	// WriteFile writes content to a file at the specified path
+	WriteFile(path, content string) error
+
+	// PushBranchUpstream pushes a new branch upstream with git push -u origin
+	PushBranchUpstream(branchName string) error
 }
 
 // GitRunner implements LocalGit interface using git commands
@@ -179,6 +189,38 @@ func parseGitHubPath(path string) (owner, repo string, err error) {
 	return parts[0], parts[1], nil
 }
 
+// CreateBranch creates a new branch and switches to it
+func (g *GitRunner) CreateBranch(branchName string) error {
+	cmd := exec.Command("git", "checkout", "-b", branchName)
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf("failed to create and switch to branch %s: %w", branchName, err)
+	}
+	return nil
+}
+
+// WriteFile writes content to a file at the specified path
+func (g *GitRunner) WriteFile(path, content string) error {
+	// Ensure the directory exists
+	dir := filepath.Dir(path)
+	if err := os.MkdirAll(dir, 0755); err != nil {
+		return fmt.Errorf("failed to create directory %s: %w", dir, err)
+	}
+	
+	if err := os.WriteFile(path, []byte(content), 0644); err != nil {
+		return fmt.Errorf("failed to write file %s: %w", path, err)
+	}
+	return nil
+}
+
+// PushBranchUpstream pushes a new branch upstream with git push -u origin
+func (g *GitRunner) PushBranchUpstream(branchName string) error {
+	cmd := exec.Command("git", "push", "-u", "origin", branchName)
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf("failed to push branch %s upstream: %w", branchName, err)
+	}
+	return nil
+}
+
 // FakeLocalGit implements LocalGit interface for testing
 type FakeLocalGit struct {
 	worktrees map[string]string // branch -> path mapping
@@ -187,6 +229,9 @@ type FakeLocalGit struct {
 	isGitRepo bool
 	githubOwner string
 	githubRepo string
+	createdBranches []string // track created branches
+	writtenFiles map[string]string // path -> content mapping
+	pushedBranches []string // track pushed branches
 }
 
 // NewFakeLocalGit creates a new FakeLocalGit instance
@@ -198,6 +243,9 @@ func NewFakeLocalGit() *FakeLocalGit {
 		isGitRepo: true,
 		githubOwner: "owner",
 		githubRepo: "repo",
+		createdBranches: []string{},
+		writtenFiles: make(map[string]string),
+		pushedBranches: []string{},
 	}
 }
 
@@ -262,4 +310,37 @@ func (f *FakeLocalGit) SetGitRepository(isRepo bool) {
 func (f *FakeLocalGit) SetGitHubRepository(owner, repo string) {
 	f.githubOwner = owner
 	f.githubRepo = repo
+}
+
+// CreateBranch records a created branch in the fake state
+func (f *FakeLocalGit) CreateBranch(branchName string) error {
+	f.createdBranches = append(f.createdBranches, branchName)
+	return nil
+}
+
+// WriteFile stores file content in the fake state
+func (f *FakeLocalGit) WriteFile(path, content string) error {
+	f.writtenFiles[path] = content
+	return nil
+}
+
+// PushBranchUpstream records a pushed branch in the fake state
+func (f *FakeLocalGit) PushBranchUpstream(branchName string) error {
+	f.pushedBranches = append(f.pushedBranches, branchName)
+	return nil
+}
+
+// GetCreatedBranches returns all created branches (for testing)
+func (f *FakeLocalGit) GetCreatedBranches() []string {
+	return f.createdBranches
+}
+
+// GetWrittenFiles returns all written files (for testing)
+func (f *FakeLocalGit) GetWrittenFiles() map[string]string {
+	return f.writtenFiles
+}
+
+// GetPushedBranches returns all pushed branches (for testing)
+func (f *FakeLocalGit) GetPushedBranches() []string {
+	return f.pushedBranches
 }

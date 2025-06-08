@@ -1,4 +1,4 @@
-Study docs/cli.md
+Study docs/worker.md
 
 Study worker/
 
