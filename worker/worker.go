@@ -97,11 +97,16 @@ func (w *Worker) ProcessPR(prNumber int) error {
 
 // extractBranchFromPRInfo extracts the branch name from PR information
 func (w *Worker) extractBranchFromPRInfo(prInfo string) (string, error) {
-	// Look for common patterns in PR info that indicate the branch name
-	// This is a simple implementation - in practice, this would need to parse
-	// the actual format returned by GitHub CLI
-	re := regexp.MustCompile(`(?i)branch:\s*([^\s\n]+)`)
+	// Look for headRefName in JSON format returned by gh CLI
+	re := regexp.MustCompile(`"headRefName":\s*"([^"]+)"`)
 	matches := re.FindStringSubmatch(prInfo)
+	if len(matches) > 1 {
+		return matches[1], nil
+	}
+	
+	// Fallback: look for common patterns in PR info that indicate the branch name
+	re = regexp.MustCompile(`(?i)branch:\s*([^\s\n]+)`)
+	matches = re.FindStringSubmatch(prInfo)
 	if len(matches) > 1 {
 		return matches[1], nil
 	}
