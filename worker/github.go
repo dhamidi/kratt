@@ -54,6 +54,9 @@ type FakeGitHub struct {
 	prData      map[int]string            // prNumber -> PR info
 	comments    map[int][]string          // prNumber -> list of comments
 	createdPRs  []CreatedPR               // list of created PRs
+	
+	// Error simulation flag
+	FailCreatePR bool
 }
 
 // CreatedPR represents a pull request that was created
@@ -95,6 +98,9 @@ func (f *FakeGitHub) PostComment(prNumber int, body string) error {
 
 // CreatePR records a created pull request in fake storage
 func (f *FakeGitHub) CreatePR(title, description string) error {
+	if f.FailCreatePR {
+		return fmt.Errorf("fake create PR failure")
+	}
 	f.createdPRs = append(f.createdPRs, CreatedPR{
 		Title:       title,
 		Description: description,

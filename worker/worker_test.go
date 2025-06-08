@@ -2,6 +2,7 @@ package worker
 
 import (
 	"context"
+	"strings"
 	"testing"
 	"time"
 )
@@ -188,5 +189,178 @@ func TestFakeCommandRunner(t *testing.T) {
 	output, err := fake.RunWithOutput(ctx, "ls", "-la")
 	if err != nil || string(output) != "test output" {
 		t.Error("Expected configured output to be returned")
+	}
+}
+
+func TestWorkerStart(t *testing.T) {
+	// Setup fakes
+	fakeGit := NewFakeLocalGit()
+	fakeGitHub := NewFakeGitHub()
+	fakeRunner := NewFakeCommandRunner()
+
+	// Create worker
+	worker := &Worker{
+		Instructions: "You are a helpful AI assistant.",
+		AgentCommand: []string{"echo", "agent-output"},
+		LintCommand:  []string{"goimports", "-w", "./..."},
+		TestCommand:  []string{"go", "test", "./..."},
+		Deadline:     5 * time.Second,
+		Git:          fakeGit,
+		GitHub:       fakeGitHub,
+		Runner:       fakeRunner,
+	}
+
+	branchName := "feature/auth-system"
+	instruction := "Implement user authentication with JWT tokens"
+
+	// Test Start method
+	err := worker.Start(branchName, instruction)
+	if err != nil {
+		t.Fatalf("Start failed: %v", err)
+	}
+
+	// Verify branch was created
+	createdBranches := fakeGit.GetCreatedBranches()
+	found := false
+	for _, branch := range createdBranches {
+		if branch == branchName {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Errorf("Expected branch '%s' to be created, got branches: %v", branchName, createdBranches)
+	}
+
+	// Verify instructions file was written
+	expectedPath := "docs/feature/auth-system-instructions.md"
+	writtenFiles := fakeGit.GetWrittenFiles()
+	content, exists := writtenFiles[expectedPath]
+	if !exists {
+		t.Errorf("Expected instructions file '%s' to be written", expectedPath)
+	} else if content != instruction {
+		t.Errorf("Expected instructions file content '%s', got '%s'", instruction, content)
+	}
+
+	// Verify commit was made
+	commits := fakeGit.GetCommits()
+	expectedCommitMsg := "Add instructions for " + branchName
+	found = false
+	for _, commit := range commits {
+		if commit == expectedCommitMsg {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Errorf("Expected commit with message '%s', got commits: %v", expectedCommitMsg, commits)
+	}
+
+	// Verify branch was pushed upstream
+	pushedBranches := fakeGit.GetPushedBranches()
+	found = false
+	for _, branch := range pushedBranches {
+		if branch == branchName {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Errorf("Expected branch '%s' to be pushed upstream, got branches: %v", branchName, pushedBranches)
+	}
+
+	// Verify PR was created
+	prs := fakeGitHub.GetCreatedPRs()
+	if len(prs) != 1 {
+		t.Fatalf("Expected 1 PR to be created, got %d", len(prs))
+	}
+
+	expectedTitle := "Implement " + branchName
+	expectedDescription := "Study docs/feature/auth-system-instructions.md and make a list of necessary implementation steps in docs/feature/auth-system-implementation-status.md"
+	
+	if prs[0].Title != expectedTitle {
+		t.Errorf("Expected PR title '%s', got '%s'", expectedTitle, prs[0].Title)
+	}
+	
+	if prs[0].Description != expectedDescription {
+		t.Errorf("Expected PR description '%s', got '%s'", expectedDescription, prs[0].Description)
+	}
+}
+
+func TestWorkerStartErrorHandling(t *testing.T) {
+	tests := []struct {
+		name        string
+		setupFake   func(*FakeLocalGit, *FakeGitHub)
+		expectError string
+	}{
+		{
+			name: "CreateBranch fails",
+			setupFake: func(git *FakeLocalGit, github *FakeGitHub) {
+				git.FailCreateBranch = true
+			},
+			expectError: "failed to create branch",
+		},
+		{
+			name: "WriteFile fails",
+			setupFake: func(git *FakeLocalGit, github *FakeGitHub) {
+				git.FailWriteFile = true
+			},
+			expectError: "failed to write instructions file",
+		},
+		{
+			name: "CommitAndPush fails",
+			setupFake: func(git *FakeLocalGit, github *FakeGitHub) {
+				git.FailCommitAndPush = true
+			},
+			expectError: "failed to commit instructions file",
+		},
+		{
+			name: "PushBranchUpstream fails",
+			setupFake: func(git *FakeLocalGit, github *FakeGitHub) {
+				git.FailPushBranchUpstream = true
+			},
+			expectError: "failed to push branch upstream",
+		},
+		{
+			name: "CreatePR fails",
+			setupFake: func(git *FakeLocalGit, github *FakeGitHub) {
+				github.FailCreatePR = true
+			},
+			expectError: "failed to create pull request",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Setup fakes
+			fakeGit := NewFakeLocalGit()
+			fakeGitHub := NewFakeGitHub()
+			fakeRunner := NewFakeCommandRunner()
+
+			// Apply test-specific setup
+			tt.setupFake(fakeGit, fakeGitHub)
+
+			// Create worker
+			worker := &Worker{
+				Instructions: "You are a helpful AI assistant.",
+				AgentCommand: []string{"echo", "agent-output"},
+				LintCommand:  []string{"goimports", "-w", "./..."},
+				TestCommand:  []string{"go", "test", "./..."},
+				Deadline:     5 * time.Second,
+				Git:          fakeGit,
+				GitHub:       fakeGitHub,
+				Runner:       fakeRunner,
+			}
+
+			// Test Start method - should fail
+			err := worker.Start("test-branch", "test instruction")
+			if err == nil {
+				t.Fatal("Expected Start to fail, but it succeeded")
+			}
+
+			if !strings.Contains(err.Error(), tt.expectError) {
+				t.Errorf("Expected error to contain '%s', got '%s'", tt.expectError, err.Error())
+			}
+		})
 	}
 }

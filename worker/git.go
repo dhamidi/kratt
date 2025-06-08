@@ -232,6 +232,12 @@ type FakeLocalGit struct {
 	createdBranches []string // track created branches
 	writtenFiles map[string]string // path -> content mapping
 	pushedBranches []string // track pushed branches
+	
+	// Error simulation flags
+	FailCreateBranch bool
+	FailWriteFile bool
+	FailCommitAndPush bool
+	FailPushBranchUpstream bool
 }
 
 // NewFakeLocalGit creates a new FakeLocalGit instance
@@ -269,6 +275,9 @@ func (f *FakeLocalGit) ChangeDirectory(path string) error {
 
 // CommitAndPush records a commit in the fake state
 func (f *FakeLocalGit) CommitAndPush(message string) error {
+	if f.FailCommitAndPush {
+		return fmt.Errorf("fake commit and push failure")
+	}
 	f.commits = append(f.commits, message)
 	return nil
 }
@@ -314,18 +323,27 @@ func (f *FakeLocalGit) SetGitHubRepository(owner, repo string) {
 
 // CreateBranch records a created branch in the fake state
 func (f *FakeLocalGit) CreateBranch(branchName string) error {
+	if f.FailCreateBranch {
+		return fmt.Errorf("fake create branch failure")
+	}
 	f.createdBranches = append(f.createdBranches, branchName)
 	return nil
 }
 
 // WriteFile stores file content in the fake state
 func (f *FakeLocalGit) WriteFile(path, content string) error {
+	if f.FailWriteFile {
+		return fmt.Errorf("fake write file failure")
+	}
 	f.writtenFiles[path] = content
 	return nil
 }
 
 // PushBranchUpstream records a pushed branch in the fake state
 func (f *FakeLocalGit) PushBranchUpstream(branchName string) error {
+	if f.FailPushBranchUpstream {
+		return fmt.Errorf("fake push branch upstream failure")
+	}
 	f.pushedBranches = append(f.pushedBranches, branchName)
 	return nil
 }
