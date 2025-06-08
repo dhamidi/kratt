@@ -43,6 +43,16 @@ type LocalGit interface {
     
     // GetGitHubRepository extracts GitHub owner/repo from git remotes
     GetGitHubRepository() (owner, repo string, err error)
+    
+    // Start method support (added for Worker.Start)
+    // CreateBranch creates a new branch and switches to it
+    CreateBranch(branchName string) error
+    
+    // WriteFile writes content to a file at the specified path
+    WriteFile(path, content string) error
+    
+    // PushBranchUpstream pushes a new branch upstream with git push -u origin
+    PushBranchUpstream(branchName string) error
 }
 ```
 
@@ -55,6 +65,9 @@ type GitHub interface {
     
     // PostComment posts a comment to the specified pull request
     PostComment(prNumber int, body string) error
+    
+    // CreatePR creates a new pull request with the given title and description
+    CreatePR(title, description string) error
 }
 ```
 
@@ -86,6 +99,13 @@ type Worker struct {
     Runner CommandRunner
 }
 ```
+
+#### Worker Methods
+
+The Worker provides two main methods:
+
+1. **ProcessPR(prNumber int) error** - Processes an existing pull request
+2. **Start(branchName string, instruction string) error** - Creates a new branch and pull request with instructions
 
 ### Step 3: Implement Worker Method - DONE ✅
 
@@ -135,6 +155,38 @@ Create the main `ProcessPR(prNumber int) error` method:
 - Call `w.Git.CommitAndPush("Automated changes from kratt worker")`
 - Handle any git operation errors
 
+### Step 8: Implement Worker.Start Method - NEW
+
+Create the `Start(branchName string, instruction string) error` method:
+
+#### 8.1: Create and Switch to New Branch
+
+- Call `w.Git.CreateBranch(branchName)` to create a new branch and switch to it
+- Handle any git operation errors
+
+#### 8.2: Write Instructions File
+
+- Create file path as `docs/<branchName>-instructions.md`
+- Call `w.Git.WriteFile(path, instruction)` to write the instructions
+- Handle any file writing errors
+
+#### 8.3: Commit Instructions File
+
+- Call `w.Git.CommitAndPush("Add instructions for " + branchName)`
+- Handle any git operation errors
+
+#### 8.4: Push Branch Upstream
+
+- Call `w.Git.PushBranchUpstream(branchName)` to push with `git push -u origin`
+- Handle any git operation errors
+
+#### 8.5: Create Pull Request
+
+- Create PR title as "Implement " + branchName
+- Create PR description as "Study docs/<branchName>-instructions.md and make a list of necessary implementation steps in docs/<branchName>-implementation-status.md"
+- Call `w.GitHub.CreatePR(title, description)` to create the pull request
+- Handle any GitHub API errors
+
 ### Step 4: Implement Concrete Types - DONE ✅
 
 #### GitRunner (implements LocalGit)
@@ -144,12 +196,16 @@ Create the main `ProcessPR(prNumber int) error` method:
 - Implement directory changes using `os.Chdir` or command working directory
 - Repository detection using `git rev-parse --is-inside-work-tree`
 - GitHub repository extraction using `git remote get-url origin` and URL parsing
+- Branch creation using `git checkout -b <branchName>`
+- File writing using `os.WriteFile` or equivalent
+- Upstream push using `git push -u origin <branchName>`
 
 #### GitHubCLI (implements GitHub)  
 
 - Use `os/exec` to run `gh` commands
 - Parse `gh pr view` output for PR information
 - Use `gh pr comment` for posting comments
+- Use `gh pr create --title <title> --body <description>` for creating pull requests
 
 #### ExecRunner (implements CommandRunner)
 
@@ -178,6 +234,9 @@ Use fakes (not mocks) that maintain internal state and uphold invariants:
 - `CommitAndPush()` records commits made
 - `IsGitRepository()` returns configurable boolean (default: true)
 - `GetGitHubRepository()` returns configurable owner/repo (default: "owner/repo")
+- `CreateBranch()` records created branches
+- `WriteFile()` stores file content in memory
+- `PushBranchUpstream()` records upstream pushes
 - All operations respect the internal state
 
 #### FakeGitHub  
@@ -185,7 +244,8 @@ Use fakes (not mocks) that maintain internal state and uphold invariants:
 - Stores PR data and comments in memory
 - `GetPRInfo()` returns stored PR information
 - `PostComment()` adds comments to internal storage
-- Allows verification of posted comments
+- `CreatePR()` records created pull requests with title and description
+- Allows verification of posted comments and created PRs
 
 #### FakeCommandRunner
 
@@ -230,7 +290,18 @@ Core worker implementation completed:
 - ✅ Implement IsGitRepository() and GetGitHubRepository() in GitRunner - DONE
 - ✅ Update FakeLocalGit with new methods for testing - DONE
 
-## Usage Example
+**Worker.Start Method Requirements:**
+- ⏳ Extend LocalGit interface with CreateBranch, WriteFile, PushBranchUpstream methods
+- ⏳ Extend GitHub interface with CreatePR method
+- ⏳ Implement Worker.Start method with 5 steps (8.1-8.5)
+- ⏳ Update GitRunner with new LocalGit methods
+- ⏳ Update GitHubCLI with CreatePR method
+- ⏳ Update FakeLocalGit and FakeGitHub with new methods
+- ⏳ Add comprehensive tests for Worker.Start method
+
+## Usage Examples
+
+### Processing an Existing PR
 
 ```go
 worker := &Worker{
@@ -245,6 +316,20 @@ worker := &Worker{
 }
 
 err := worker.ProcessPR(123)
+if err != nil {
+    log.Fatal(err)
+}
+```
+
+### Creating a New Branch and PR
+
+```go
+worker := &Worker{
+    // ... same configuration as above
+}
+
+instruction := "Implement user authentication system with JWT tokens and role-based access control"
+err := worker.Start("feature/auth-system", instruction)
 if err != nil {
     log.Fatal(err)
 }
