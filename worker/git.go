@@ -2,6 +2,7 @@ package worker
 
 import (
 	"fmt"
+	"net/url"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -141,34 +142,41 @@ func (g *GitRunner) GetGitHubRepository() (owner, repo string, err error) {
 		return "", "", fmt.Errorf("failed to get remote origin URL: %w", err)
 	}
 
-	url := strings.TrimSpace(string(output))
+	remoteURL := strings.TrimSpace(string(output))
 	
-	// Parse GitHub URL patterns:
-	// https://github.com/owner/repo.git
-	// git@github.com:owner/repo.git
-	if strings.Contains(url, "github.com") {
-		// Remove .git suffix if present
-		if strings.HasSuffix(url, ".git") {
-			url = url[:len(url)-4]
-		}
-		
-		var parts []string
-		if strings.HasPrefix(url, "https://github.com/") {
-			// HTTPS format
-			path := strings.TrimPrefix(url, "https://github.com/")
-			parts = strings.Split(path, "/")
-		} else if strings.HasPrefix(url, "git@github.com:") {
-			// SSH format
-			path := strings.TrimPrefix(url, "git@github.com:")
-			parts = strings.Split(path, "/")
-		}
-		
-		if len(parts) >= 2 {
-			return parts[0], parts[1], nil
-		}
+	// Handle SSH format: git@github.com:owner/repo.git
+	if strings.HasPrefix(remoteURL, "git@github.com:") {
+		path := strings.TrimPrefix(remoteURL, "git@github.com:")
+		return parseGitHubPath(path)
 	}
 	
-	return "", "", fmt.Errorf("unable to parse GitHub repository from URL: %s", url)
+	// Handle HTTPS format: https://github.com/owner/repo.git
+	parsedURL, err := url.Parse(remoteURL)
+	if err != nil {
+		return "", "", fmt.Errorf("failed to parse remote URL: %w", err)
+	}
+	
+	if parsedURL.Host != "github.com" {
+		return "", "", fmt.Errorf("not a GitHub repository: %s", remoteURL)
+	}
+	
+	return parseGitHubPath(parsedURL.Path)
+}
+
+// parseGitHubPath extracts owner and repo from a GitHub path
+func parseGitHubPath(path string) (owner, repo string, err error) {
+	// Remove leading slash and .git suffix
+	path = strings.TrimPrefix(path, "/")
+	if strings.HasSuffix(path, ".git") {
+		path = path[:len(path)-4]
+	}
+	
+	parts := strings.Split(path, "/")
+	if len(parts) < 2 {
+		return "", "", fmt.Errorf("invalid GitHub path format: %s", path)
+	}
+	
+	return parts[0], parts[1], nil
 }
 
 // FakeLocalGit implements LocalGit interface for testing
