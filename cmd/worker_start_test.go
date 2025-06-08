@@ -1,89 +1,12 @@
 package cmd
 
 import (
-	"context"
-	"errors"
 	"testing"
 
 	"github.com/dhamidi/kratt/worker"
 )
 
-// mockGit implements LocalGit for testing
-type mockGit struct {
-	isGitRepo      bool
-	isGitRepoErr   error
-	owner          string
-	repo           string
-	getRepoErr     error
-	branchExists   bool
-	branchExistsErr error
-	createBranchErr error
-	writeFileErr    error
-	commitPushErr   error
-	pushUpstreamErr error
-}
 
-func (m *mockGit) IsGitRepository() (bool, error) {
-	return m.isGitRepo, m.isGitRepoErr
-}
-
-func (m *mockGit) GetGitHubRepository() (string, string, error) {
-	return m.owner, m.repo, m.getRepoErr
-}
-
-func (m *mockGit) BranchExists(branch string) (bool, error) {
-	return m.branchExists, m.branchExistsErr
-}
-
-func (m *mockGit) CreateBranch(branch string) error {
-	return m.createBranchErr
-}
-
-func (m *mockGit) WriteFile(path, content string) error {
-	return m.writeFileErr
-}
-
-func (m *mockGit) CommitAndPush(message string) error {
-	return m.commitPushErr
-}
-
-func (m *mockGit) PushBranchUpstream(branch string) error {
-	return m.pushUpstreamErr
-}
-
-// Implement remaining LocalGit methods with no-op implementations
-func (m *mockGit) CheckWorktreeExists(branch string) (bool, error) { return false, nil }
-func (m *mockGit) GetWorktreePath(branch string) (string, error)   { return "", nil }
-func (m *mockGit) CreateWorktree(branch, path string) error        { return nil }
-func (m *mockGit) ChangeDirectory(path string) error              { return nil }
-
-// mockGitHub implements GitHub for testing
-type mockGitHub struct {
-	createPRErr error
-}
-
-func (m *mockGitHub) GetPRInfo(prNumber int) (string, error) {
-	return "", nil
-}
-
-func (m *mockGitHub) PostComment(prNumber int, body string) error {
-	return nil
-}
-
-func (m *mockGitHub) CreatePR(title, description string) error {
-	return m.createPRErr
-}
-
-// mockRunner implements CommandRunner for testing
-type mockRunner struct{}
-
-func (m *mockRunner) RunWithStdin(ctx context.Context, stdin, command string, args ...string) error {
-	return nil
-}
-
-func (m *mockRunner) RunWithOutput(ctx context.Context, command string, args ...string) ([]byte, error) {
-	return nil, nil
-}
 
 func TestIsValidBranchName(t *testing.T) {
 	tests := []struct {
@@ -121,14 +44,13 @@ func TestIsValidBranchName(t *testing.T) {
 }
 
 func TestRunWorkerStart_NotGitRepository(t *testing.T) {
-	git := &mockGit{
-		isGitRepo: false,
-	}
+	git := worker.NewFakeLocalGit()
+	git.SetGitRepository(false)
 
 	w := &worker.Worker{
 		Git:    git,
-		GitHub: &mockGitHub{},
-		Runner: &mockRunner{},
+		GitHub: worker.NewFakeGitHub(),
+		Runner: worker.NewFakeCommandRunner(),
 	}
 
 	// Set up the original worker creation to use our mock
@@ -151,12 +73,9 @@ func TestRunWorkerStart_NotGitRepository(t *testing.T) {
 }
 
 func TestRunWorkerStart_BranchAlreadyExists(t *testing.T) {
-	git := &mockGit{
-		isGitRepo:    true,
-		owner:        "testowner",
-		repo:         "testrepo",
-		branchExists: true,
-	}
+	git := worker.NewFakeLocalGit()
+	git.SetGitHubRepository("testowner", "testrepo")
+	git.CreateBranch("existing-branch") // This adds it to the fake state
 
 	isRepo, _ := git.IsGitRepository()
 	if !isRepo {
@@ -170,10 +89,8 @@ func TestRunWorkerStart_BranchAlreadyExists(t *testing.T) {
 }
 
 func TestRunWorkerStart_GitHubRepositoryError(t *testing.T) {
-	git := &mockGit{
-		isGitRepo:  true,
-		getRepoErr: errors.New("no remote found"),
-	}
+	git := worker.NewFakeLocalGit()
+	git.FailGetGitHubRepository = true
 
 	isRepo, _ := git.IsGitRepository()
 	if !isRepo {
@@ -187,19 +104,15 @@ func TestRunWorkerStart_GitHubRepositoryError(t *testing.T) {
 }
 
 func TestRunWorkerStart_Success(t *testing.T) {
-	git := &mockGit{
-		isGitRepo:    true,
-		owner:        "testowner",
-		repo:         "testrepo",
-		branchExists: false,
-	}
+	git := worker.NewFakeLocalGit()
+	git.SetGitHubRepository("testowner", "testrepo")
 
-	github := &mockGitHub{}
+	github := worker.NewFakeGitHub()
 
 	w := &worker.Worker{
 		Git:    git,
 		GitHub: github,
-		Runner: &mockRunner{},
+		Runner: worker.NewFakeCommandRunner(),
 	}
 
 	err := w.Start("test-branch", "Test instructions")
@@ -209,21 +122,16 @@ func TestRunWorkerStart_Success(t *testing.T) {
 }
 
 func TestRunWorkerStart_CreatePRError(t *testing.T) {
-	git := &mockGit{
-		isGitRepo:    true,
-		owner:        "testowner",
-		repo:         "testrepo",
-		branchExists: false,
-	}
+	git := worker.NewFakeLocalGit()
+	git.SetGitHubRepository("testowner", "testrepo")
 
-	github := &mockGitHub{
-		createPRErr: errors.New("failed to create PR"),
-	}
+	github := worker.NewFakeGitHub()
+	github.FailCreatePR = true
 
 	w := &worker.Worker{
 		Git:    git,
 		GitHub: github,
-		Runner: &mockRunner{},
+		Runner: worker.NewFakeCommandRunner(),
 	}
 
 	err := w.Start("test-branch", "Test instructions")

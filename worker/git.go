@@ -253,6 +253,7 @@ type FakeLocalGit struct {
 	FailWriteFile bool
 	FailCommitAndPush bool
 	FailPushBranchUpstream bool
+	FailGetGitHubRepository bool
 }
 
 // NewFakeLocalGit creates a new FakeLocalGit instance
@@ -322,6 +323,9 @@ func (f *FakeLocalGit) IsGitRepository() (bool, error) {
 
 // GetGitHubRepository returns the configured GitHub owner/repo (for testing)
 func (f *FakeLocalGit) GetGitHubRepository() (owner, repo string, err error) {
+	if f.FailGetGitHubRepository {
+		return "", "", fmt.Errorf("fake get github repository failure")
+	}
 	return f.githubOwner, f.githubRepo, nil
 }
 
