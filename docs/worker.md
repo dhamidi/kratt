@@ -19,6 +19,7 @@ The Worker implements an automated pull request processing system that:
 Create three interfaces to encapsulate external dependencies:
 
 #### LocalGit Interface
+
 ```go
 type LocalGit interface {
     // CheckWorktreeExists checks if a worktree exists for the given branch
@@ -39,6 +40,7 @@ type LocalGit interface {
 ```
 
 #### GitHub Interface
+
 ```go
 type GitHub interface {
     // GetPRInfo retrieves pull request information including comments
@@ -50,13 +52,14 @@ type GitHub interface {
 ```
 
 #### CommandRunner Interface
+
 ```go
 type CommandRunner interface {
     // RunWithStdin executes a command with the given stdin input
     RunWithStdin(ctx context.Context, stdin string, command string, args ...string) error
     
-    // RunWithOutput executes a command and returns stdout and stderr
-    RunWithOutput(ctx context.Context, command string, args ...string) (stdout, stderr string, err error)
+    // RunWithOutput executes a command and returns interleaved stdout/stderr output
+    RunWithOutput(ctx context.Context, command string, args ...string) (output []byte, err error)
 }
 ```
 
@@ -82,10 +85,12 @@ type Worker struct {
 Create the main `ProcessPR(prNumber int) error` method:
 
 #### 3.1: Get PR Information
+
 - Call `w.GitHub.GetPRInfo(prNumber)` to retrieve PR data
 - Handle any errors returned from GitHub API
 
 #### 3.2: Handle Git Worktree
+
 - Extract branch name from PR information
 - Call `w.Git.CheckWorktreeExists(branch)` to check if worktree exists
 - If worktree doesn't exist:
@@ -93,47 +98,56 @@ Create the main `ProcessPR(prNumber int) error` method:
 - Call `w.Git.ChangeDirectory(path)` to switch to worktree
 
 #### 3.3: Generate Agent Prompt
+
 - Wrap PR info in `<pull-request>...</pull-request>` tags
 - Prefix with `w.Instructions`
 - Create final prompt string
 
 #### 3.4: Execute Agent with Timeout
+
 - Create context with timeout using `w.Deadline`
 - Call `w.Runner.RunWithStdin(ctx, prompt, w.AgentCommand[0], w.AgentCommand[1:]...)`
 - Handle timeout/cancellation gracefully
 
 #### 3.5: Run Lint and Test Commands
-- Call `w.Runner.RunWithOutput(ctx, w.LintCommand[0], w.LintCommand[1:]...)` 
+
+- Call `w.Runner.RunWithOutput(ctx, w.LintCommand[0], w.LintCommand[1:]...)`
 - Call `w.Runner.RunWithOutput(ctx, w.TestCommand[0], w.TestCommand[1:]...)`
-- Collect both stdout and stderr from each command
+- Collect interleaved output from each command
 - Handle any execution errors
 
 #### 3.6: Post Results Comment
+
 - Format lint and test outputs into a comment body
-- Include both stdout and stderr
+- Convert []byte output to string for display
 - Add success/failure indicators
 - Call `w.GitHub.PostComment(prNumber, commentBody)`
 
 #### 3.7: Commit and Push Changes
+
 - Call `w.Git.CommitAndPush("Automated changes from kratt worker")`
 - Handle any git operation errors
 
 ### Step 4: Implement Concrete Types
 
 #### GitRunner (implements LocalGit)
+
 - Use `os/exec` to run git commands
 - Handle worktree operations using `git worktree` subcommands
 - Implement directory changes using `os.Chdir` or command working directory
 
 #### GitHubCLI (implements GitHub)  
+
 - Use `os/exec` to run `gh` commands
 - Parse `gh pr view` output for PR information
 - Use `gh pr comment` for posting comments
 
 #### ExecRunner (implements CommandRunner)
+
 - Use `os/exec.CommandContext` for timeout support
 - Handle stdin/stdout/stderr piping
-- Return captured output and errors
+- Use `exec.Cmd.CombinedOutput()` to get interleaved stdout/stderr
+- Return captured output as []byte and errors
 
 ### Step 5: Error Handling Strategy
 
@@ -144,21 +158,48 @@ Create the main `ProcessPR(prNumber int) error` method:
 
 ### Step 6: Testing Approach
 
-- Create mock implementations of all interfaces
-- Test each step of the workflow independently
-- Include integration tests with real git repositories
-- Test timeout and cancellation behavior
-- Verify error handling and cleanup
+Use fakes (not mocks) that maintain internal state and uphold invariants:
+
+#### FakeLocalGit
+
+- Maintains a map of existing worktrees
+- `CreateWorktree()` adds to the worktrees map
+- `CheckWorktreeExists()` checks the worktrees map
+- `ChangeDirectory()` tracks current directory
+- `CommitAndPush()` records commits made
+- All operations respect the internal state
+
+#### FakeGitHub  
+
+- Stores PR data and comments in memory
+- `GetPRInfo()` returns stored PR information
+- `PostComment()` adds comments to internal storage
+- Allows verification of posted comments
+
+#### FakeCommandRunner
+
+- Maps command patterns to predefined responses
+- `RunWithStdin()` records stdin input for verification
+- `RunWithOutput()` returns configured []byte responses
+- Simulates command execution without actual process spawning
+- Can simulate timeouts and errors
+
+#### Test Strategy
+
+- Test each step of the workflow independently using fakes
+- Verify state changes in fakes (worktrees created, comments posted)
+- Test timeout and cancellation behavior with controlled fakes
+- Verify error handling and cleanup with failing fake operations
+- Integration tests use fakes to simulate complete workflows
 
 ## File Structure
 
 ```
 worker/
 ├── worker.go          # Main Worker struct and ProcessPR method
-├── interfaces.go      # Interface definitions
-├── git.go            # GitRunner implementation
-├── github.go         # GitHubCLI implementation  
-├── exec.go           # ExecRunner implementation
+├── git.go            # LocalGit interface and GitRunner and fake implementation
+├── github.go         # Github interface and GitHubCLI and fake implementation  
+├── exec.go           # CommandRunner interface and ExecRunner and fake implementation
 └── worker_test.go    # Unit and integration tests
 ```
 
@@ -168,9 +209,9 @@ worker/
 worker := &Worker{
     Instructions: "You are an AI assistant helping with code review.",
     AgentCommand: []string{"amp", "--stdin"},
-    LintCommand:  []string{"golangci-lint", "run"},
+    LintCommand:  []string{"goimports", "-w", "./..."},
     TestCommand:  []string{"go", "test", "./..."},
-    Deadline:     5 * time.Minute,
+    Deadline:     30 * time.Minute,
     Git:          &GitRunner{},
     GitHub:       &GitHubCLI{},
     Runner:       &ExecRunner{},
