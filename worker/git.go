@@ -110,8 +110,16 @@ func (g *GitRunner) CommitAndPush(message string) error {
 		return fmt.Errorf("failed to commit changes: %w", err)
 	}
 
-	// Push changes
-	pushCmd := exec.Command("git", "push")
+	// Get current branch name
+	branchCmd := exec.Command("git", "branch", "--show-current")
+	branchOutput, err := branchCmd.Output()
+	if err != nil {
+		return fmt.Errorf("failed to get current branch: %w", err)
+	}
+	branchName := strings.TrimSpace(string(branchOutput))
+
+	// Push changes with upstream
+	pushCmd := exec.Command("git", "push", "-u", "origin", branchName)
 	if err := pushCmd.Run(); err != nil {
 		return fmt.Errorf("failed to push changes: %w", err)
 	}
