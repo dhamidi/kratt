@@ -13,6 +13,9 @@ type GitHub interface {
 
 	// PostComment posts a comment to the specified pull request
 	PostComment(prNumber int, body string) error
+
+	// CreatePR creates a new pull request with the given title and description
+	CreatePR(title, description string) error
 }
 
 // GitHubCLI implements GitHub interface using GitHub CLI
@@ -37,17 +40,34 @@ func (g *GitHubCLI) PostComment(prNumber int, body string) error {
 	return nil
 }
 
+// CreatePR creates a new pull request using gh CLI
+func (g *GitHubCLI) CreatePR(title, description string) error {
+	cmd := exec.Command("gh", "pr", "create", "--title", title, "--body", description)
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf("failed to create PR with title '%s': %w", title, err)
+	}
+	return nil
+}
+
 // FakeGitHub implements GitHub interface for testing
 type FakeGitHub struct {
-	prData   map[int]string            // prNumber -> PR info
-	comments map[int][]string          // prNumber -> list of comments
+	prData      map[int]string            // prNumber -> PR info
+	comments    map[int][]string          // prNumber -> list of comments
+	createdPRs  []CreatedPR               // list of created PRs
+}
+
+// CreatedPR represents a pull request that was created
+type CreatedPR struct {
+	Title       string
+	Description string
 }
 
 // NewFakeGitHub creates a new FakeGitHub instance
 func NewFakeGitHub() *FakeGitHub {
 	return &FakeGitHub{
-		prData:   make(map[int]string),
-		comments: make(map[int][]string),
+		prData:     make(map[int]string),
+		comments:   make(map[int][]string),
+		createdPRs: []CreatedPR{},
 	}
 }
 
@@ -73,7 +93,21 @@ func (f *FakeGitHub) PostComment(prNumber int, body string) error {
 	return nil
 }
 
+// CreatePR records a created pull request in fake storage
+func (f *FakeGitHub) CreatePR(title, description string) error {
+	f.createdPRs = append(f.createdPRs, CreatedPR{
+		Title:       title,
+		Description: description,
+	})
+	return nil
+}
+
 // GetComments returns all comments for a PR (for testing)
 func (f *FakeGitHub) GetComments(prNumber int) []string {
 	return f.comments[prNumber]
+}
+
+// GetCreatedPRs returns all created PRs (for testing)
+func (f *FakeGitHub) GetCreatedPRs() []CreatedPR {
+	return f.createdPRs
 }
