@@ -42,6 +42,9 @@ type LocalGit interface {
 
 	// PushBranchUpstream pushes a new branch upstream with git push -u origin
 	PushBranchUpstream(branchName string) error
+
+	// BranchExists checks if a branch exists
+	BranchExists(branchName string) (bool, error)
 }
 
 // GitRunner implements LocalGit interface using git commands
@@ -221,6 +224,18 @@ func (g *GitRunner) PushBranchUpstream(branchName string) error {
 	return nil
 }
 
+// BranchExists checks if a branch exists
+func (g *GitRunner) BranchExists(branchName string) (bool, error) {
+	cmd := exec.Command("git", "branch", "--list", branchName)
+	output, err := cmd.Output()
+	if err != nil {
+		return false, fmt.Errorf("failed to list branches: %w", err)
+	}
+	
+	// If output is not empty, the branch exists
+	return len(strings.TrimSpace(string(output))) > 0, nil
+}
+
 // FakeLocalGit implements LocalGit interface for testing
 type FakeLocalGit struct {
 	worktrees map[string]string // branch -> path mapping
@@ -361,4 +376,14 @@ func (f *FakeLocalGit) GetWrittenFiles() map[string]string {
 // GetPushedBranches returns all pushed branches (for testing)
 func (f *FakeLocalGit) GetPushedBranches() []string {
 	return f.pushedBranches
+}
+
+// BranchExists checks if a branch exists in the fake state
+func (f *FakeLocalGit) BranchExists(branchName string) (bool, error) {
+	for _, branch := range f.createdBranches {
+		if branch == branchName {
+			return true, nil
+		}
+	}
+	return false, nil
 }

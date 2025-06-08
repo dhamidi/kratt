@@ -1,4 +1,4 @@
-Study docs/worker.md
+Study docs/cli.md
 
 Study worker/
 
@@ -8,6 +8,6 @@ Execute that step.
 
 Verify the results.
 
-Once done, mark the step as done by adding "DONE" to the step in docs/worker.md
+Once done, mark the step as done by adding "DONE" to the step in docs/cli.md
 
 Then commit all new and changed files related to the change with a conventional commit.
