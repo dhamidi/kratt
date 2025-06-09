@@ -6,8 +6,6 @@ import (
 	"github.com/dhamidi/kratt/worker"
 )
 
-
-
 func TestIsValidBranchName(t *testing.T) {
 	tests := []struct {
 		name     string

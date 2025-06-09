@@ -51,10 +51,10 @@ func (g *GitHubCLI) CreatePR(title, description string) error {
 
 // FakeGitHub implements GitHub interface for testing
 type FakeGitHub struct {
-	prData      map[int]string            // prNumber -> PR info
-	comments    map[int][]string          // prNumber -> list of comments
-	createdPRs  []CreatedPR               // list of created PRs
-	
+	prData     map[int]string   // prNumber -> PR info
+	comments   map[int][]string // prNumber -> list of comments
+	createdPRs []CreatedPR      // list of created PRs
+
 	// Error simulation flag
 	FailCreatePR bool
 }

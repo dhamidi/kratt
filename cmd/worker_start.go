@@ -90,17 +90,17 @@ func isValidBranchName(name string) bool {
 	if invalidChars.MatchString(name) {
 		return false
 	}
-	
+
 	// Cannot start or end with dot or slash
-	if len(name) == 0 || name[0] == '.' || name[0] == '/' || 
+	if len(name) == 0 || name[0] == '.' || name[0] == '/' ||
 		name[len(name)-1] == '.' || name[len(name)-1] == '/' {
 		return false
 	}
-	
+
 	// Cannot contain double dots
 	if regexp.MustCompile(`\.\.`).MatchString(name) {
 		return false
 	}
-	
+
 	return true
 }

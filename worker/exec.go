@@ -23,7 +23,7 @@ type ExecRunner struct{}
 func (e *ExecRunner) RunWithStdin(ctx context.Context, stdin string, command string, args ...string) error {
 	cmd := exec.CommandContext(ctx, command, args...)
 	cmd.Stdin = strings.NewReader(stdin)
-	
+
 	if err := cmd.Run(); err != nil {
 		return fmt.Errorf("failed to run command %s %v: %w", command, args, err)
 	}
@@ -42,9 +42,9 @@ func (e *ExecRunner) RunWithOutput(ctx context.Context, command string, args ...
 
 // FakeCommandRunner implements CommandRunner interface for testing
 type FakeCommandRunner struct {
-	stdinInputs map[string]string         // command -> stdin input (for verification)
-	responses   map[string][]byte         // command -> output response
-	errors      map[string]error          // command -> error to return
+	stdinInputs map[string]string // command -> stdin input (for verification)
+	responses   map[string][]byte // command -> output response
+	errors      map[string]error  // command -> error to return
 }
 
 // NewFakeCommandRunner creates a new FakeCommandRunner instance
@@ -68,7 +68,7 @@ func (f *FakeCommandRunner) SetResponse(commandPattern string, output []byte, er
 func (f *FakeCommandRunner) RunWithStdin(ctx context.Context, stdin string, command string, args ...string) error {
 	cmdKey := fmt.Sprintf("%s %s", command, strings.Join(args, " "))
 	f.stdinInputs[cmdKey] = stdin
-	
+
 	if err, exists := f.errors[cmdKey]; exists {
 		return err
 	}
@@ -78,14 +78,14 @@ func (f *FakeCommandRunner) RunWithStdin(ctx context.Context, stdin string, comm
 // RunWithOutput returns configured output and error
 func (f *FakeCommandRunner) RunWithOutput(ctx context.Context, command string, args ...string) (output []byte, err error) {
 	cmdKey := fmt.Sprintf("%s %s", command, strings.Join(args, " "))
-	
+
 	if output, exists := f.responses[cmdKey]; exists {
 		if err, hasErr := f.errors[cmdKey]; hasErr {
 			return output, err
 		}
 		return output, nil
 	}
-	
+
 	// Default response if not configured
 	return []byte("fake output"), nil
 }

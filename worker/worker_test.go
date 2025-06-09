@@ -277,11 +277,11 @@ func TestWorkerStart(t *testing.T) {
 
 	expectedTitle := "Implement " + branchName
 	expectedDescription := "Study docs/feature/auth-system-instructions.md and make a list of necessary implementation steps in docs/feature/auth-system-implementation-status.md"
-	
+
 	if prs[0].Title != expectedTitle {
 		t.Errorf("Expected PR title '%s', got '%s'", expectedTitle, prs[0].Title)
 	}
-	
+
 	if prs[0].Description != expectedDescription {
 		t.Errorf("Expected PR description '%s', got '%s'", expectedDescription, prs[0].Description)
 	}
