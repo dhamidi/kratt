@@ -1,1 +1,0 @@
-Study docs/cli.md and write a friendly and colloquial user guide in README.md, explaining the project. The name comes from Estonian folklore (explain what a Kratt is)
