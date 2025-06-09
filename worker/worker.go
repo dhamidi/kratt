@@ -46,7 +46,7 @@ func (w *Worker) ProcessPR(prNumber int) error {
 		if err != nil {
 			return fmt.Errorf("failed to get worktree path: %w", err)
 		}
-		
+
 		err = w.Git.CreateWorktree(branch, path)
 		if err != nil {
 			return fmt.Errorf("failed to create worktree: %w", err)
@@ -103,21 +103,21 @@ func (w *Worker) extractBranchFromPRInfo(prInfo string) (string, error) {
 	if len(matches) > 1 {
 		return matches[1], nil
 	}
-	
+
 	// Fallback: look for common patterns in PR info that indicate the branch name
 	re = regexp.MustCompile(`(?i)branch:\s*([^\s\n]+)`)
 	matches = re.FindStringSubmatch(prInfo)
 	if len(matches) > 1 {
 		return matches[1], nil
 	}
-	
+
 	// Fallback: look for "head:" pattern
 	re = regexp.MustCompile(`(?i)head:\s*([^\s\n]+)`)
 	matches = re.FindStringSubmatch(prInfo)
 	if len(matches) > 1 {
 		return matches[1], nil
 	}
-	
+
 	return "", fmt.Errorf("could not extract branch name from PR info")
 }
 
@@ -135,9 +135,9 @@ func (w *Worker) generatePrompt(prInfo string) string {
 // formatResultsComment formats the lint and test results into a comment
 func (w *Worker) formatResultsComment(lintOutput []byte, lintErr error, testOutput []byte, testErr error) string {
 	var comment strings.Builder
-	
+
 	comment.WriteString("## Kratt Worker Results\n\n")
-	
+
 	// Lint results
 	comment.WriteString("### Lint Results\n")
 	if lintErr != nil {
@@ -148,15 +148,15 @@ func (w *Worker) formatResultsComment(lintOutput []byte, lintErr error, testOutp
 	} else {
 		comment.WriteString("✅ **Passed**\n")
 	}
-	
+
 	if len(lintOutput) > 0 {
 		comment.WriteString("```\n")
 		comment.WriteString(string(lintOutput))
 		comment.WriteString("\n```\n")
 	}
-	
+
 	comment.WriteString("\n")
-	
+
 	// Test results
 	comment.WriteString("### Test Results\n")
 	if testErr != nil {
@@ -167,13 +167,13 @@ func (w *Worker) formatResultsComment(lintOutput []byte, lintErr error, testOutp
 	} else {
 		comment.WriteString("✅ **Passed**\n")
 	}
-	
+
 	if len(testOutput) > 0 {
 		comment.WriteString("```\n")
 		comment.WriteString(string(testOutput))
 		comment.WriteString("\n```\n")
 	}
-	
+
 	return comment.String()
 }
 

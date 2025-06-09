@@ -140,7 +140,7 @@ func (g *GitRunner) GetWorktreePath(branch string) (string, error) {
 	// Create worktree path as ../repo-branch
 	repoName := filepath.Base(repoRoot)
 	worktreePath := filepath.Join(filepath.Dir(repoRoot), fmt.Sprintf("%s-%s", repoName, branch))
-	
+
 	return worktreePath, nil
 }
 
@@ -164,23 +164,23 @@ func (g *GitRunner) GetGitHubRepository() (owner, repo string, err error) {
 	}
 
 	remoteURL := strings.TrimSpace(string(output))
-	
+
 	// Handle SSH format: git@github.com:owner/repo.git
 	if strings.HasPrefix(remoteURL, "git@github.com:") {
 		path := strings.TrimPrefix(remoteURL, "git@github.com:")
 		return parseGitHubPath(path)
 	}
-	
+
 	// Handle HTTPS format: https://github.com/owner/repo.git
 	parsedURL, err := url.Parse(remoteURL)
 	if err != nil {
 		return "", "", fmt.Errorf("failed to parse remote URL: %w", err)
 	}
-	
+
 	if parsedURL.Host != "github.com" {
 		return "", "", fmt.Errorf("not a GitHub repository: %s", remoteURL)
 	}
-	
+
 	return parseGitHubPath(parsedURL.Path)
 }
 
@@ -191,12 +191,12 @@ func parseGitHubPath(path string) (owner, repo string, err error) {
 	if strings.HasSuffix(path, ".git") {
 		path = path[:len(path)-4]
 	}
-	
+
 	parts := strings.Split(path, "/")
 	if len(parts) < 2 {
 		return "", "", fmt.Errorf("invalid GitHub path format: %s", path)
 	}
-	
+
 	return parts[0], parts[1], nil
 }
 
@@ -216,7 +216,7 @@ func (g *GitRunner) WriteFile(path, content string) error {
 	if err := os.MkdirAll(dir, 0755); err != nil {
 		return fmt.Errorf("failed to create directory %s: %w", dir, err)
 	}
-	
+
 	if err := os.WriteFile(path, []byte(content), 0644); err != nil {
 		return fmt.Errorf("failed to write file %s: %w", path, err)
 	}
@@ -239,43 +239,43 @@ func (g *GitRunner) BranchExists(branchName string) (bool, error) {
 	if err != nil {
 		return false, fmt.Errorf("failed to list branches: %w", err)
 	}
-	
+
 	// If output is not empty, the branch exists
 	return len(strings.TrimSpace(string(output))) > 0, nil
 }
 
 // FakeLocalGit implements LocalGit interface for testing
 type FakeLocalGit struct {
-	worktrees map[string]string // branch -> path mapping
-	currentDir string
-	commits []string
-	isGitRepo bool
-	githubOwner string
-	githubRepo string
-	createdBranches []string // track created branches
-	writtenFiles map[string]string // path -> content mapping
-	pushedBranches []string // track pushed branches
-	
+	worktrees       map[string]string // branch -> path mapping
+	currentDir      string
+	commits         []string
+	isGitRepo       bool
+	githubOwner     string
+	githubRepo      string
+	createdBranches []string          // track created branches
+	writtenFiles    map[string]string // path -> content mapping
+	pushedBranches  []string          // track pushed branches
+
 	// Error simulation flags
-	FailCreateBranch bool
-	FailWriteFile bool
-	FailCommitAndPush bool
-	FailPushBranchUpstream bool
+	FailCreateBranch        bool
+	FailWriteFile           bool
+	FailCommitAndPush       bool
+	FailPushBranchUpstream  bool
 	FailGetGitHubRepository bool
 }
 
 // NewFakeLocalGit creates a new FakeLocalGit instance
 func NewFakeLocalGit() *FakeLocalGit {
 	return &FakeLocalGit{
-		worktrees: make(map[string]string),
-		currentDir: "/fake/repo",
-		commits: []string{},
-		isGitRepo: true,
-		githubOwner: "owner",
-		githubRepo: "repo",
+		worktrees:       make(map[string]string),
+		currentDir:      "/fake/repo",
+		commits:         []string{},
+		isGitRepo:       true,
+		githubOwner:     "owner",
+		githubRepo:      "repo",
 		createdBranches: []string{},
-		writtenFiles: make(map[string]string),
-		pushedBranches: []string{},
+		writtenFiles:    make(map[string]string),
+		pushedBranches:  []string{},
 	}
 }
 
